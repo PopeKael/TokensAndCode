@@ -23,15 +23,21 @@ After you approve the selected folder in Setup, the first scan runs in the backg
 
 Closing the window hides it in the system tray. Use the tray menu's **Exit** command to quit. Start the executable again from Windows to bring the tray utility back; automatic Windows startup is not currently configured.
 
-## Install and run
+## Download and run
 
-Download `TokensAndCode.exe` from a GitHub Release and run it. On first launch:
+1. Open the [latest Windows release](https://github.com/PopeKael/TokensAndCode/releases/latest) and download `TokensAndCode-<version>-windows-x64.zip` from **Assets**.
+2. Extract the whole ZIP to a folder where you want to keep the portable app.
+3. Run `TokensAndCode.exe` from the extracted folder. The ZIP also includes this README and the MIT licence.
+
+This is a portable Windows x64 app; it does not install itself or create a Start Menu shortcut. No administrator access is required. The release includes a separate `.sha256` file for checking the ZIP if desired.
+
+On first launch:
 
 1. Confirm or choose the Codex sessions folder.
 2. Approve read-only access to that local folder.
 3. Select **Save setup and refresh**.
 
-By default the folder is `%USERPROFILE%\.codex\sessions`. No administrator access is required.
+By default the folder is `%USERPROFILE%\.codex\sessions`.
 
 ## Build from source
 

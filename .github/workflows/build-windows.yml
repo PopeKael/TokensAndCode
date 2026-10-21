@@ -19,15 +19,25 @@ jobs:
         run: cargo build --release --locked
       - name: Package portable executable
         shell: pwsh
-        run: Compress-Archive -Path target/release/TokensAndCode.exe, README.md, LICENSE -DestinationPath TokensAndCode-Windows-x64.zip -Force
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $archiveName = "TokensAndCode-$version-windows-x64.zip"
+          Compress-Archive -Path target/release/TokensAndCode.exe, README.md, LICENSE -DestinationPath $archiveName -Force
+          $checksum = (Get-FileHash -Path $archiveName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$checksum  $archiveName" | Set-Content -Path "$archiveName.sha256" -Encoding ascii
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
           name: TokensAndCode-Windows-x64
-          path: TokensAndCode-Windows-x64.zip
+          path: |
+            TokensAndCode-*-windows-x64.zip
+            TokensAndCode-*-windows-x64.zip.sha256
       - name: Publish tagged release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
-        run: gh release create $env:GITHUB_REF_NAME TokensAndCode-Windows-x64.zip --generate-notes
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $archiveName = "TokensAndCode-$version-windows-x64.zip"
+          gh release create $env:GITHUB_REF_NAME $archiveName "$archiveName.sha256" --title "Tokens and Code $env:GITHUB_REF_NAME" --notes-file .github/release-notes.md
