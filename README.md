@@ -2,6 +2,8 @@
 
 Tokens and Code is a small Windows tray utility for exploring Codex token telemetry stored on your own PC. It scans Codex rollout logs locally, keeps an aggregate recent copy for quick opening, and lets you refresh that copy when you choose.
 
+**Download:** [Get the latest Windows x64 release](https://github.com/PopeKael/TokensAndCode/releases/latest), extract the ZIP, then run `TokensAndCode.exe`. No installer is needed.
+
 ## What it does
 
 - Reads `.jsonl` and `.jsonl.zst` rollout files recursively from a folder you select.
