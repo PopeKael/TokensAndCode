@@ -2570,12 +2570,13 @@ dependencies = [
 
 [[package]]
 name = "tokens-and-code"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "chrono",
  "chrono-tz",
  "directories",
  "eframe",
+ "image",
  "raw-window-handle",
  "rfd",
  "serde",

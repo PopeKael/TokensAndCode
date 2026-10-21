@@ -41,9 +41,11 @@ Requirements: Windows 10 or newer and the stable Rust toolchain.
 cargo build --release --locked
 ```
 
-The portable executable is `target\release\TokensAndCode.exe`. The app uses native Rust/egui UI, an embedded Windows application icon, and a system tray icon; no browser runtime, Python installation, database server, or external web assets are required.
+The portable executable is `target\release\TokensAndCode.exe`. The app uses native Rust/egui UI, the same embedded icon in its executable, window, and system tray, and no browser runtime, Python installation, database server, or external web assets.
 
 The portable ZIP does not install the app or create a Start Menu entry. The executable's embedded icon is ready for a Windows shortcut once a permanent run location is chosen; the install and shortcut flow remains a separate packaging step.
+
+The window can be resized down to approximately 800 × 600 including its Windows title bar. At that size the primary token cards, API-equivalent costs, and daily trend graph remain in the first view; allowance, benchmark, and drill-down details continue below by scrolling.
 
 ## Where local data is stored
 

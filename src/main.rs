@@ -538,9 +538,7 @@ impl UsageApp {
             Period::Session => "Current primary session with linked child work",
             Period::All => "All logged history",
         };
-        ui.label(RichText::new(range).color(Color32::from_rgb(149, 170, 177)));
-        ui.add_space(8.0);
-        section_title(ui, "TOKEN USAGE", "Selected period");
+        section_title(ui, "TOKEN USAGE", range);
         let metrics = [
             (
                 "Input",
@@ -575,7 +573,7 @@ impl UsageApp {
         ];
         metric_cards(ui, &metrics);
 
-        ui.add_space(16.0);
+        ui.add_space(5.0);
         section_title(
             ui,
             "COST COMPARISON",
@@ -594,34 +592,11 @@ impl UsageApp {
         });
         metric_cards(ui, &costs);
 
-        ui.add_space(16.0);
-        section_title(
-            ui,
-            "BENCHMARK REFERENCE",
-            "Artificial Analysis · Intelligence Index v4.3.2",
-        );
-        ui.label(RichText::new("Model variant Max · checked 21 October 2026 · task cost is separate from your selected-period estimate").small().color(Color32::GRAY));
-        ui.horizontal_wrapped(|ui| {
-            for (name, url, score, cost) in AA {
-                egui::Frame::new()
-                    .fill(Color32::from_rgb(20, 31, 37))
-                    .stroke(egui::Stroke::new(1.0_f32, Color32::from_rgb(39, 58, 66)))
-                    .corner_radius(8.0)
-                    .inner_margin(egui::Margin::same(12))
-                    .show(ui, |ui| {
-                        ui.set_min_width(190.0);
-                        ui.label(RichText::new(name).strong());
-                        ui.horizontal(|ui| {
-                            ui.label(RichText::new(format!("${cost:.2}")).size(20.0).strong());
-                            ui.label(RichText::new("/ task").small().color(Color32::GRAY));
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label(format!("Intelligence score {score}"));
-                            ui.hyperlink_to("Details ↗", url);
-                        });
-                    });
-            }
-        });
+        ui.add_space(5.0);
+        section_title(ui, "DAILY TREND", "Token history");
+        if let Some(snapshot) = &self.snapshot {
+            daily_chart(ui, snapshot, &mut self.chart_metric, &mut self.chart_source);
+        }
     }
     fn allowances(&self, ui: &mut egui::Ui) {
         ui.add_space(12.0);
@@ -634,38 +609,40 @@ impl UsageApp {
             ui.label("No Plus rate-limit records found in scanned logs.");
             return;
         }
-        ui.horizontal_wrapped(|ui| {
-            for (label, w) in [
+        ui.columns(2, |cols| {
+            for (col, (label, w)) in cols.iter_mut().zip([
                 ("5-hour", s.allowances.five_hour.as_ref()),
                 ("7-day", s.allowances.seven_day.as_ref()),
-            ] {
+            ]) {
                 if let Some(w) = w {
                     egui::Frame::new()
                         .fill(Color32::from_rgb(20, 31, 37))
                         .stroke(egui::Stroke::new(1.0_f32, Color32::from_rgb(39, 58, 66)))
                         .corner_radius(8.0)
                         .inner_margin(egui::Margin::same(12))
-                        .show(ui, |ui| {
-                            ui.set_min_width(220.0);
-                            ui.label(RichText::new(format!("{label} window")).strong());
-                            ui.label(
-                                RichText::new(format!("{:.0}% used", w.used_percent))
-                                    .size(22.0)
-                                    .strong()
-                                    .color(Color32::from_rgb(82, 222, 178)),
-                            );
-                            ui.label(format!(
-                                "Resets {}",
-                                w.resets_at.as_deref().unwrap_or("unknown")
-                            ));
-                            ui.label(
-                                RichText::new(format!(
-                                    "Observed {}",
-                                    w.observed_at.as_deref().unwrap_or("unknown")
-                                ))
-                                .small()
-                                .color(Color32::GRAY),
-                            );
+                        .show(col, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                                ui.label(RichText::new(format!("{label} window")).strong());
+                                ui.label(
+                                    RichText::new(format!("{:.0}% used", w.used_percent))
+                                        .size(22.0)
+                                        .strong()
+                                        .color(Color32::from_rgb(82, 222, 178)),
+                                );
+                                ui.label(format!(
+                                    "Resets {}",
+                                    w.resets_at.as_deref().unwrap_or("unknown")
+                                ));
+                                ui.label(
+                                    RichText::new(format!(
+                                        "Observed {}",
+                                        w.observed_at.as_deref().unwrap_or("unknown")
+                                    ))
+                                    .small()
+                                    .color(Color32::GRAY),
+                                );
+                            });
                         });
                 }
             }
@@ -723,8 +700,6 @@ impl UsageApp {
             }
         });
         ui.add_space(10.0);
-        ui.heading("Daily token history");
-        daily_chart(ui, s, &mut self.chart_metric, &mut self.chart_source);
         egui::ScrollArea::horizontal().show(ui, |ui| {
             egui::Grid::new("daily-grid").striped(true).show(ui, |ui| {
                 ui.strong("Date");
@@ -780,6 +755,36 @@ impl UsageApp {
                 }
             })
         });
+        ui.add_space(12.0);
+        section_title(
+            ui,
+            "BENCHMARK REFERENCE",
+            "Artificial Analysis · Intelligence Index v4.3.2",
+        );
+        ui.label(RichText::new("Model variant Max · checked 21 October 2026 · task cost is separate from your selected-period estimate").small().color(Color32::GRAY));
+        ui.columns(3, |cols| {
+            for (col, (name, url, score, cost)) in cols.iter_mut().zip(AA) {
+                egui::Frame::new()
+                    .fill(Color32::from_rgb(20, 31, 37))
+                    .stroke(egui::Stroke::new(1.0_f32, Color32::from_rgb(39, 58, 66)))
+                    .corner_radius(8.0)
+                    .inner_margin(egui::Margin::same(8))
+                    .show(col, |ui| {
+                        ui.set_min_width(ui.available_width());
+                        ui.spacing_mut().item_spacing.y = 3.0;
+                        ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                            ui.label(RichText::new(name).strong());
+                            ui.label(
+                                RichText::new(format!("${cost:.2} / task"))
+                                    .size(18.0)
+                                    .strong(),
+                            );
+                            ui.label(format!("Intelligence score {score}"));
+                            ui.hyperlink_to("Model details ↗", url);
+                        });
+                    });
+            }
+        });
     }
 }
 impl eframe::App for UsageApp {
@@ -828,7 +833,9 @@ impl eframe::App for UsageApp {
             } else {
                 self.stale_banner(ui);
                 self.refresh_progress(ui);
-                if !self.status.is_empty() {
+                if self.status.starts_with("Refresh failed")
+                    || self.status.contains("unreadable log")
+                {
                     ui.label(&self.status);
                 }
                 egui::ScrollArea::vertical().show(ui, |ui| {
@@ -876,19 +883,9 @@ fn build_tray(
     }));
     let ctx = cc.egui_ctx.clone();
     let oid = open.clone();
-    let data: Vec<u8> = (0..16 * 16)
-        .flat_map(|i| {
-            let x = i % 16;
-            let y = i / 16;
-            let on = x > 3 && x < 12 && y > 3 && y < 12;
-            if on {
-                [65_u8, 220, 172, 255]
-            } else {
-                [20, 33, 39, 0]
-            }
-        })
-        .collect();
-    let icon = Icon::from_rgba(data, 16, 16)?;
+    let tray_image =
+        image::imageops::resize(&icon_image(), 16, 16, image::imageops::FilterType::Lanczos3);
+    let icon = Icon::from_rgba(tray_image.into_raw(), 16, 16)?;
     let tray = TrayIconBuilder::new()
         .with_tooltip("Tokens and Code · local Codex telemetry")
         .with_icon(icon)
@@ -928,6 +925,11 @@ fn restore_native(ctx: &egui::Context, hwnd: isize) {
     ctx.send_viewport_cmd(ViewportCommand::Focus);
     ctx.request_repaint();
 }
+fn icon_image() -> image::RgbaImage {
+    image::load_from_memory(include_bytes!("../assets/tokens-and-code.png"))
+        .expect("embedded Tokens and Code icon should be valid PNG")
+        .to_rgba8()
+}
 fn section_title(ui: &mut egui::Ui, eyebrow: &str, title: &str) {
     ui.horizontal(|ui| {
         ui.label(
@@ -943,42 +945,41 @@ fn section_title(ui: &mut egui::Ui, eyebrow: &str, title: &str) {
 fn metric_cards(ui: &mut egui::Ui, metrics: &[(&str, String, Color32)]) {
     let available = ui.available_width().max(200.0);
     let columns = ((available / 215.0).floor() as usize).clamp(1, 3);
-    let gap = 9.0;
-    let width =
-        ((available - gap * (columns.saturating_sub(1) as f32)) / columns as f32).max(185.0);
-    ui.horizontal_wrapped(|ui| {
-        ui.set_width(available);
-        for (label, value, accent) in metrics {
-            egui::Frame::new()
-                .fill(Color32::from_rgb(20, 31, 37))
-                .stroke(egui::Stroke::new(1.0_f32, Color32::from_rgb(39, 58, 66)))
-                .corner_radius(8.0)
-                .inner_margin(egui::Margin::same(12))
-                .show(ui, |ui| {
-                    ui.set_min_width(width - 26.0);
-                    ui.set_max_width(width - 26.0);
-                    ui.label(
-                        RichText::new(*label)
-                            .small()
-                            .color(Color32::from_rgb(157, 177, 184)),
-                    );
-                    ui.add_space(2.0);
-                    let value_size = if value.chars().count() > 18 {
-                        13.0
-                    } else if value.chars().count() > 11 {
-                        17.0
-                    } else {
-                        21.0
-                    };
-                    ui.label(
-                        RichText::new(value)
-                            .size(value_size)
-                            .strong()
-                            .color(*accent),
-                    );
-                });
-        }
-    });
+    for row in metrics.chunks(columns) {
+        ui.columns(columns, |cols| {
+            for ((label, value, accent), col) in row.iter().zip(cols.iter_mut()) {
+                egui::Frame::new()
+                    .fill(Color32::from_rgb(20, 31, 37))
+                    .stroke(egui::Stroke::new(1.0_f32, Color32::from_rgb(39, 58, 66)))
+                    .corner_radius(8.0)
+                    .inner_margin(egui::Margin::same(10))
+                    .show(col, |ui| {
+                        ui.set_min_width(ui.available_width());
+                        ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                            ui.label(
+                                RichText::new(*label)
+                                    .small()
+                                    .color(Color32::from_rgb(157, 177, 184)),
+                            );
+                            let value_size = if value.chars().count() > 18 {
+                                13.0
+                            } else if value.chars().count() > 11 {
+                                17.0
+                            } else {
+                                21.0
+                            };
+                            ui.label(
+                                RichText::new(value)
+                                    .size(value_size)
+                                    .strong()
+                                    .color(*accent),
+                            );
+                        });
+                    });
+            }
+        });
+        ui.add_space(3.0);
+    }
 }
 fn daily_chart(ui: &mut egui::Ui, snapshot: &Snapshot, metric: &mut String, source: &mut String) {
     ui.horizontal(|ui| {
@@ -1014,7 +1015,7 @@ fn daily_chart(ui: &mut egui::Ui, snapshot: &Snapshot, metric: &mut String, sour
         return;
     }
     let (rect, _) = ui.allocate_exact_size(
-        egui::vec2(ui.available_width().max(300.0), 130.0),
+        egui::vec2(ui.available_width().max(300.0), 76.0),
         egui::Sense::hover(),
     );
     let painter = ui.painter_at(rect);
@@ -1108,10 +1109,16 @@ fn truncate(s: &str, n: usize) -> String {
     }
 }
 fn main() -> eframe::Result {
+    let icon = icon_image();
     let opt = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1180.0, 860.0])
-            .with_min_inner_size([880.0, 640.0])
+            .with_min_inner_size([800.0, 570.0])
+            .with_icon(egui::IconData {
+                width: icon.width(),
+                height: icon.height(),
+                rgba: icon.into_raw(),
+            })
             .with_title(APP_NAME),
         ..Default::default()
     };
