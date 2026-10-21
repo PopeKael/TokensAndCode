@@ -307,39 +307,137 @@ impl UsageApp {
         ctx.send_viewport_cmd(ViewportCommand::Focus);
     }
     fn render_setup(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Set up Codex log access");
-        ui.label("Tokens and Code reads Codex rollout logs on this PC. It does not modify them or send them anywhere.");
-        ui.add_space(8.0);
+        ui.add_space(18.0);
+        ui.vertical_centered(|ui| {
+            ui.label(RichText::new("TOKENS AND CODE  /  FIRST RUN").small().color(Color32::from_rgb(82, 222, 178)));
+            ui.add_space(6.0);
+            ui.heading("Connect your Codex history");
+            ui.label("Choose the local sessions folder. Tokens and Code reads it on this PC and leaves the rollout files untouched.");
+        });
+        ui.add_space(16.0);
+        ui.group(|ui| {
+            ui.heading("1  ·  Sessions folder");
+            ui.label(RichText::new("Select the folder that contains your rollout logs. Subfolders are scanned too.").color(Color32::GRAY));
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                ui.add(egui::TextEdit::singleline(&mut self.config.source_root).desired_width(ui.available_width() - 92.0));
+                if ui.button("Choose folder…").clicked() {
+                    if let Some(p) = rfd::FileDialog::new()
+                        .set_title("Choose the Codex sessions folder")
+                        .set_directory(&self.config.source_root)
+                        .pick_folder()
+                    {
+                        self.config.source_root = p.display().to_string();
+                    }
+                }
+            });
+            ui.label(RichText::new("Default: %USERPROFILE%\\.codex\\sessions").small().color(Color32::GRAY));
+        });
+        ui.add_space(10.0);
+        ui.columns(2, |cols| {
+            cols[0].group(|ui| {
+                ui.heading("2  ·  What gets read");
+                ui.label("• Codex rollout .jsonl and .jsonl.zst files");
+                ui.label("• Token counts, model, time, and project path");
+                ui.label("• Plus allowance snapshots already in those logs");
+            });
+            cols[1].group(|ui| {
+                ui.heading("3  ·  Where your copy lives");
+                ui.label("A compact recent snapshot and settings are saved locally:");
+                ui.label(
+                    RichText::new(data_dir().display().to_string())
+                        .small()
+                        .monospace(),
+                );
+                ui.label("Nothing is uploaded. You can change the source folder later in Setup.");
+            });
+        });
+        ui.add_space(12.0);
+        ui.group(|ui| {
+            ui.checkbox(&mut self.setup_confirm, "I approve read-only access to the selected local folder.");
+            ui.label(RichText::new("The first scan reads every matching log and may take a few minutes. Refreshes run in the background; the window shows progress.").color(Color32::GRAY));
+        });
+        ui.add_space(10.0);
         ui.horizontal(|ui| {
-            ui.label("Sessions folder");
-            ui.text_edit_singleline(&mut self.config.source_root);
-            if ui.button("Choose…").clicked() {
-                if let Some(p) = rfd::FileDialog::new()
-                    .set_title("Choose the Codex sessions folder")
-                    .set_directory(&self.config.source_root)
-                    .pick_folder()
-                {
-                    self.config.source_root = p.display().to_string();
+            let can_save = self.setup_confirm && !self.busy;
+            if ui
+                .add_enabled(can_save, egui::Button::new("Save setup and scan logs"))
+                .clicked()
+            {
+                let root = PathBuf::from(self.config.source_root.trim());
+                if !root.is_dir() {
+                    self.status = format!("That folder cannot be found: {}", root.display());
+                } else {
+                    self.config.read_only_confirmed = true;
+                    if let Err(e) = save_json(&config_path(), &self.config) {
+                        self.status = format!("Could not save setup: {e}");
+                    } else {
+                        self.show_setup = false;
+                        self.start_scan();
+                    }
                 }
             }
-        });
-        ui.checkbox(
-            &mut self.setup_confirm,
-            "I approve read-only access to the selected local folder.",
-        );
-        ui.label(RichText::new("A recent, aggregate-only copy will be stored under your local application data folder. The original logs remain untouched.").color(Color32::GRAY));
-        if ui.button("Save setup and refresh").clicked() {
-            if !self.setup_confirm {
-                self.status = "Please confirm read-only access before scanning.".into()
-            } else {
-                self.config.read_only_confirmed = true;
-                let _ = save_json(&config_path(), &self.config);
+            if self.snapshot.is_some() && ui.button("Cancel").clicked() {
                 self.show_setup = false;
-                self.start_scan();
             }
-        }
+            if self.busy {
+                ui.spinner();
+                ui.label(
+                    "A scan is already running. Wait for it to finish before changing folders.",
+                );
+            }
+        });
         if !self.status.is_empty() {
-            ui.label(&self.status);
+            ui.add_space(6.0);
+            ui.label(RichText::new(&self.status).color(Color32::YELLOW));
+        }
+    }
+    fn first_scan_progress(&self, ui: &mut egui::Ui) {
+        ui.add_space(28.0);
+        ui.vertical_centered(|ui| {
+            ui.label(RichText::new("FIRST SCAN").small().color(Color32::from_rgb(82, 222, 178)));
+            ui.add_space(8.0);
+            ui.heading("Building your recent copy");
+            ui.label("The first scan checks the selected Codex history and can take a little while.");
+            ui.add_space(18.0);
+            let fraction = if self.progress.1 > 0 { self.progress.0 as f32 / self.progress.1 as f32 } else { 0.0 };
+            ui.add(egui::ProgressBar::new(fraction).desired_width(ui.available_width().min(620.0)).show_percentage());
+            ui.add_space(6.0);
+            ui.label(format!("File {} of {}", self.progress.0, self.progress.1));
+            ui.label(RichText::new(&self.current_file).small().color(Color32::GRAY));
+            ui.add_space(12.0);
+            ui.label("Your original log files are opened read only. The app saves its summary in local application data.");
+        });
+    }
+    fn no_recent_copy(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(28.0);
+        ui.vertical_centered(|ui| {
+            ui.label(RichText::new("TOKENS AND CODE").small().color(Color32::from_rgb(82, 222, 178)));
+            ui.add_space(8.0);
+            ui.heading("Your recent copy is ready to build");
+            ui.label("Choose the Codex sessions folder and approve read-only access to start the first scan.");
+            ui.add_space(12.0);
+            if ui.button("Set up Codex log access").clicked() {
+                self.setup_confirm = self.config.read_only_confirmed;
+                self.show_setup = true;
+            }
+        });
+    }
+    fn refresh_progress(&self, ui: &mut egui::Ui) {
+        if self.busy {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(format!(
+                    "Refreshing · file {} of {} · {}",
+                    self.progress.0, self.progress.1, self.current_file
+                ));
+                if self.progress.1 > 0 {
+                    ui.add(
+                        egui::ProgressBar::new(self.progress.0 as f32 / self.progress.1 as f32)
+                            .desired_width(150.0),
+                    );
+                }
+            });
         }
     }
     fn selected_stats(&self) -> Stats {
@@ -425,54 +523,65 @@ impl UsageApp {
         };
         ui.label(RichText::new(range).color(Color32::GRAY));
         ui.add_space(8.0);
-        egui::Grid::new("token-metrics")
-            .num_columns(3)
-            .spacing([16.0, 10.0])
-            .show(ui, |ui| {
-                metric(ui, "Input", s.usage.input_tokens);
-                metric(ui, "Cached input", s.usage.cached_input_tokens);
-                metric(ui, "Fresh input", s.usage.fresh_input_tokens);
-                ui.end_row();
-                metric(ui, "Output", s.usage.output_tokens);
+        ui.columns(3, |cols| {
+            cols[0].group(|ui| {
+                metric(ui, "Input", fmt(s.usage.input_tokens));
+                ui.separator();
+                metric(ui, "Output", fmt(s.usage.output_tokens));
+            });
+            cols[1].group(|ui| {
+                metric(ui, "Cached input", fmt(s.usage.cached_input_tokens));
+                ui.separator();
                 metric(
                     ui,
-                    "Reasoning output (included above)",
-                    s.usage.reasoning_output_tokens,
+                    "Reasoning output · included above",
+                    fmt(s.usage.reasoning_output_tokens),
                 );
+            });
+            cols[2].group(|ui| {
+                metric(ui, "Fresh input", fmt(s.usage.fresh_input_tokens));
+                ui.separator();
                 metric(
                     ui,
                     "Primary / child tokens",
                     format!("{} / {}", fmt(s.primary_tokens), fmt(s.subagent_tokens)),
                 );
-                ui.end_row();
             });
+        });
         ui.add_space(10.0);
         ui.heading("Hypothetical Standard API equivalent");
         ui.label(
             "USD for the selected token period · reasoning is included in output and billed once",
         );
-        ui.horizontal_wrapped(|ui| {
-            for name in ["GPT-6 Astra", "GPT-6 Sol", "GPT-6 Luna"] {
-                ui.group(|ui| {
-                    ui.label(name);
+        ui.columns(3, |cols| {
+            for (col, name) in cols
+                .iter_mut()
+                .zip(["GPT-6 Astra", "GPT-6 Sol", "GPT-6 Luna"])
+            {
+                col.group(|ui| {
+                    ui.label(RichText::new(name).strong());
                     ui.heading(format!(
                         "${:.2}",
                         s.usage.cost_usd.get(name).copied().unwrap_or_default()
                     ));
-                    ui.label("standard-rate estimate");
+                    ui.label(
+                        RichText::new("selected-period estimate")
+                            .small()
+                            .color(Color32::GRAY),
+                    );
                 });
             }
         });
         ui.add_space(10.0);
         ui.heading("Artificial Analysis benchmark comparison");
         ui.label("Intelligence Index v4.3.2 · model variant Max · checked 21 October 2026");
-        ui.horizontal_wrapped(|ui| {
-            for (name, url, score, cost) in AA {
-                ui.group(|ui| {
-                    ui.label(name);
-                    ui.heading(format!("${cost:.2} / AA task"));
+        ui.columns(3, |cols| {
+            for (col, (name, url, score, cost)) in cols.iter_mut().zip(AA) {
+                col.group(|ui| {
+                    ui.label(RichText::new(name).strong());
+                    ui.heading(format!("${cost:.2} / task"));
                     ui.label(format!("Intelligence score: {score}"));
-                    ui.hyperlink_to("Artificial Analysis model page", url);
+                    ui.hyperlink_to("Model details ↗", url);
                 });
             }
         });
@@ -627,41 +736,42 @@ impl eframe::App for UsageApp {
                 ui.heading(APP_NAME);
                 ui.label(RichText::new("LOCAL · READ ONLY").color(Color32::from_rgb(82, 222, 178)));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("Refresh").clicked() {
-                        self.start_scan()
-                    }
-                    if ui.button("Setup").clicked() {
-                        self.setup_confirm = self.config.read_only_confirmed;
-                        self.show_setup = true;
+                    if !self.show_setup {
+                        if ui
+                            .add_enabled(
+                                !self.busy && self.config.read_only_confirmed,
+                                egui::Button::new("Refresh"),
+                            )
+                            .clicked()
+                        {
+                            self.start_scan()
+                        }
+                        if ui
+                            .add_enabled(!self.busy, egui::Button::new("Setup"))
+                            .clicked()
+                        {
+                            self.setup_confirm = self.config.read_only_confirmed;
+                            self.show_setup = true;
+                        }
                     }
                 });
             });
         });
         egui::CentralPanel::default().show(ctx, |ui| {
-            if !self.show_setup {
-                self.stale_banner(ui);
-            }
-            if self.busy {
-                ui.horizontal(|ui| {
-                    ui.spinner();
-                    ui.label(format!(
-                        "Scanning file {} of {} · {}",
-                        self.progress.0, self.progress.1, self.current_file
-                    ));
-                    if self.progress.1 > 0 {
-                        ui.add(
-                            egui::ProgressBar::new(self.progress.0 as f32 / self.progress.1 as f32)
-                                .desired_width(180.0),
-                        );
-                    }
-                });
-            }
-            if !self.status.is_empty() {
-                ui.label(&self.status);
-            }
             if self.show_setup {
                 self.render_setup(ui);
+            } else if self.snapshot.is_none() {
+                if self.busy {
+                    self.first_scan_progress(ui);
+                } else {
+                    self.no_recent_copy(ui);
+                }
             } else {
+                self.stale_banner(ui);
+                self.refresh_progress(ui);
+                if !self.status.is_empty() {
+                    ui.label(&self.status);
+                }
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     self.show_period(ui);
                     ui.separator();

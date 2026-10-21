@@ -14,14 +14,14 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build release executable
         run: cargo build --release --locked
       - name: Package portable executable
         shell: pwsh
         run: Compress-Archive -Path target/release/TokensAndCode.exe, README.md, LICENSE -DestinationPath TokensAndCode-Windows-x64.zip -Force
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: TokensAndCode-Windows-x64
           path: TokensAndCode-Windows-x64.zip
