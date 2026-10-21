@@ -1,7 +1,8 @@
 [package]
 name = "tokens-and-code"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
+build = "build.rs"
 description = "A local-first Codex token usage and cost explorer"
 license = "MIT"
 
@@ -22,6 +23,9 @@ tray-icon = { version = "=0.26.0", default-features = false }
 walkdir = "2.5"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 zstd = "0.13"
+
+[build-dependencies]
+winresource = "0.1.34"
 
 [profile.release]
 opt-level = 3
