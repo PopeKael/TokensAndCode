@@ -1,0 +1,29 @@
+[package]
+name = "tokens-and-code"
+version = "0.1.0"
+edition = "2024"
+description = "A local-first Codex token usage and cost explorer"
+license = "MIT"
+
+[[bin]]
+name = "TokensAndCode"
+path = "src/main.rs"
+
+[dependencies]
+chrono = { version = "0.4", features = ["clock", "serde"] }
+chrono-tz = "0.10"
+directories = "6"
+eframe = { version = "=0.33.3", default-features = false, features = ["default_fonts", "glow"] }
+rfd = "0.15"
+raw-window-handle = "=0.6.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tray-icon = { version = "=0.26.0", default-features = false }
+walkdir = "2.5"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+zstd = "0.13"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true

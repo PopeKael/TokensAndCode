@@ -1,0 +1,33 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build release executable
+        run: cargo build --release --locked
+      - name: Package portable executable
+        shell: pwsh
+        run: Compress-Archive -Path target/release/TokensAndCode.exe, README.md, LICENSE -DestinationPath TokensAndCode-Windows-x64.zip -Force
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TokensAndCode-Windows-x64
+          path: TokensAndCode-Windows-x64.zip
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: gh release create $env:GITHUB_REF_NAME TokensAndCode-Windows-x64.zip --generate-notes

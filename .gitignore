@@ -1,0 +1,8 @@
+/target/
+/dist/
+/dist/
+/summary.json
+/dashboard.html
+/scan.py
+*.tmp
+*.log
