@@ -72,3 +72,11 @@ Tokens and Code processes the selected files locally. It has no analytics, netwo
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
+## Help and community
+
+Please [open an Issue](https://github.com/PopeKael/TokensAndCode/issues) to report a bug or suggest an improvement. Include your Windows version, application version and reproducible steps. Do not publish raw Codex logs, local session identifiers or private project paths.
+
+Part of [Garage Alchemy](https://garage.dia.net.au/): useful tools, practical experiments, and the lessons learned while building them.
+
+**Support is optional:** [Buy Me a Coffee](https://buymeacoffee.com/warrengerdes) · [Join the Tribe on Patreon](https://www.patreon.com/c/chanyawazza). No payment is required to use or contribute to this project under its licence.
